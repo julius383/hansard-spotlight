@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+dataset/
+*.db
+*.txt
+.envrc
+.env
+.secrets.toml
+node_modules/
+*.jsonl
+*.json
+*.duckdb
+*.csv
+*.parquet
+__marimo__
+*.pdf
+*.xml

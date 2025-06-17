@@ -1,0 +1,126 @@
+---
+    config:
+        layout: elk
+---
+erDiagram
+    NATIONAL_ASSEMBLY {
+        uuid id
+        date session_start
+        date session_end
+    }
+    SENATE {
+        uuid id
+        date session_start
+        date session_end
+    }
+    PERSON {
+        uuid id
+        string first_name
+        string last_name
+        date birthDate
+    }
+    PARLIAMENT_SEAT {
+        uuid id
+        string name
+    }
+    COUNTY {
+        uuid id
+        int county_no
+        string name
+    }
+    CONSTITUENCY {
+        uuid id
+        int constituency_no
+        string name
+    }
+    PARLIAMENT_SEAT many(1) to many(1) NATIONAL_ASSEMBLY : belongs_to
+    PARLIAMENT_SEAT many(1) to many(1) SENATE : belongs_to
+    PARLIAMENT_SEAT many(0) to 1 PERSON : held_by
+    PARLIAMENT_SEAT 1 to 1 COUNTY : for
+    PARLIAMENT_SEAT 1 to many(1) CONSTITUENCY : for
+
+    ORG_SEAT {
+        uuid id
+        string name
+    }
+    ORG_SEAT many(1) to many(1) ORG_SEAT : reports_to
+    MINISTRY {
+        uuid id
+        string name
+    }
+    ORG_SEAT many(1) to many(1) MINISTRY : belongs_to
+    ORG_SEAT many(1) to many(1) SAGO : belongs_to
+    ORG_SEAT many(1) to many(1) COUNCIL : belongs_to
+    ORG_SEAT many(1) to many(1) REGULATORY_BODY : belongs_to
+    SAGO[SEMI_AUTONOMOUS_GOVERNMENT_ORGANISATION] {
+        uuid id
+        string name
+        string website
+    }
+    COUNCIL {
+        uuid id
+        string name
+        string website
+    }
+    REGULATORY_BODY {
+        uuid id
+        string name
+        string website
+    }
+    SAGO many(0) to 1 MINISTRY : serves_under
+    COUNCIL many(0) to 1 MINISTRY : serves_under
+    REGULATORY_BODY many(0) to 1 MINISTRY : serves_under
+
+    GAZETTE {
+        uuid id
+        date published
+        string edition_no
+        string gazette_pdf
+    }
+
+    GAZETTE_NOTICE {
+        uuid id
+        string notice_no 
+        date dated
+        enum type   "Appointment, Instrument registration"
+        string content
+        string gazette_loc
+    }
+    GAZETTE 1 to many GAZETTE_NOTICE : contains
+    GAZETTE_NOTICE many(0) to many(0) TOPIC : discusses
+
+    HANSARD {
+        uuid id
+        string content
+        string gazette_pdf
+        string gazette_loc
+    }
+
+    HANSARD_SECTION {
+        uuid id
+        string content
+        enum type "bill, questions and answers, reading"
+        string gazette_loc
+    }
+
+    TOPIC {
+        uuid id
+        string name
+        enum type
+        string[] tags
+    }
+
+    HANSARD 1 to many HANSARD_SECTION : contains
+    PERSON many(1) to many(0) HANSARD_SECTION  : participates_in
+    HANSARD_SECTION many to many TOPIC : discusses
+
+    PARLIAMENT_SESSION {
+        uuid id
+        date convened
+        time starting
+    }
+
+    HANSARD 1 to 1 PARLIAMENT_SESSION : documents
+    PARLIAMENT_SESSION many(1) to 1 SENATE : convened_for
+    PARLIAMENT_SESSION many(1) to 1 NATIONAL_ASSEMBLY : convened_for
+    PARLIAMENT_SESSION many(1) to many(1) PERSON : attended_by
