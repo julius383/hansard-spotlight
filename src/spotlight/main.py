@@ -1,7 +1,9 @@
 import math
 import pathlib
-from collections import deque
+from collections import deque, namedtuple
+from dataclasses import dataclass, replace
 from functools import partial
+from typing import Optional, Deque
 
 import cv2 as cv
 import numpy as np
@@ -20,6 +22,17 @@ examples = [
 ]
 
 config = dotenv_values(".env")
+
+Dimension = namedtuple("Dimension", ["width", "height"])
+Rect = namedtuple("Rect", ["x", "y", "width", "height"])
+
+
+@dataclass
+class DetectedItem:
+    idx: int
+    mapped_box: pymupdf.Rect
+    opencv_rect: Rect
+    text: Optional[str] = None
 
 
 def flags_decomposer(flags):
@@ -48,10 +61,10 @@ def load_document(file_path: str | pathlib.Path) -> pymupdf.Document:
 
 
 def map_image_bbox_to_pdf(
-    bbox: tuple[float, float, float, float],
-    img_dims: tuple[float, float],
-    pdf_dims: tuple[float, float],
-) -> tuple[float, float, float, float]:
+    bbox: Rect,
+    img_dims: Dimension,
+    pdf_dims: Dimension,
+) -> pymupdf.Rect:
     x, y, w, h = bbox
     img_w, img_h = img_dims
     pdf_w, pdf_h = pdf_dims
@@ -73,8 +86,8 @@ def map_image_bbox_to_pdf(
 
 
 def find_text_regions(
-    image: np.ndarray, page_dims: tuple[float, float], debug=False
-) -> [tuple[float, float, float, float]]:
+    image: np.ndarray, page_dims: Dimension, debug=False
+) -> list[DetectedItem]:
     cv_img = cv.cvtColor(np.array(image), cv.COLOR_RGB2GRAY)
 
     ret, thresh = cv.threshold(
@@ -93,18 +106,16 @@ def find_text_regions(
     image_h, image_w = dilated.shape
     if debug:
         copied = np.copy(cv_img)
-    detected_data = deque()
+    detected_data: Deque[DetectedItem] = deque()
     PIXEL_BUFFER = 5
 
     # 5. Filter and draw bounding boxes
-    bounding_boxes = deque()
     pdf_width, pdf_height = page_dims
     for i, cnt in enumerate(contours):
         x, y, w, h = cv.boundingRect(cnt)
         if w > 20 and h > 10:  # filter small noise
             bbox = (x, y, w, h)
             if debug:
-                bounding_boxes.appendleft(bbox)
                 cv.rectangle(copied, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 cv.putText(
                     copied,
@@ -118,25 +129,25 @@ def find_text_regions(
                 )
                 cv.imwrite("debug.png", copied)
             detected_data.appendleft(
-                {
-                    "idx": i,
-                    "opencv_rect": bbox,
-                    "mapped_box": map_image_bbox_to_pdf(
-                        (
+                DetectedItem(
+                    idx=i,
+                    opencv_rect=Rect(*bbox),
+                    mapped_box=map_image_bbox_to_pdf(
+                        Rect(
                             x - PIXEL_BUFFER,
                             y - PIXEL_BUFFER,
                             w + PIXEL_BUFFER,
                             h + PIXEL_BUFFER,
                         ),
-                        (image_w, image_h),
-                        (pdf_width, pdf_height),
+                        Dimension(image_w, image_h),
+                        Dimension(pdf_width, pdf_height),
                     ),
-                }
+                )
             )
     return list(detected_data)
 
 
-def show_bboxes(image: Image, bboxes):
+def show_bboxes(image: Image.Image, bboxes: list[Rect]):
     cv_img = cv.cvtColor(np.array(image), cv.COLOR_RGB2GRAY)
     copied = np.copy(cv_img)
     for i, bbox in enumerate(bboxes):
@@ -157,19 +168,19 @@ def show_bboxes(image: Image, bboxes):
 
 
 def extract_page_image(
-    pdf: pymupdf.Document, page: int, zoom: float = 2.0
-) -> tuple[Image, tuple[float, float]]:
-    page = pdf[page]
+    pdf: pymupdf.Document, page_no: int, zoom: float = 2.0
+) -> tuple[Image.Image, Dimension]:
+    page = pdf[page_no]
     mat = pymupdf.Matrix(zoom, zoom)
     pix = page.get_pixmap(matrix=mat)
-    page_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    return page_img, (page.rect.width, page.rect.height)
+    page_img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+    return page_img, Dimension(page.rect.width, page.rect.height)
 
 
-def center_closeness(page_dims, bbox, threshold=0.225):
-    page_w, _ = page_dims
+def center_closeness(page_dims: Dimension, bbox: DetectedItem, threshold=0.225):
+    page_w = page_dims.width
     page_mid = page_w // 2
-    box_left = bbox["mapped_box"][0]
+    box_left = bbox.mapped_box.top_left.x
     lower_bound = page_mid - (page_w * threshold)
     upper_bound = page_mid + (page_w * threshold)
     if lower_bound < box_left < upper_bound:
@@ -177,16 +188,16 @@ def center_closeness(page_dims, bbox, threshold=0.225):
     return lower_bound < box_left < upper_bound
 
 
-def width_thresh(page_dims, bbox):
+def width_thresh(page_dims: Dimension, bbox: DetectedItem):
     page_x, _ = page_dims
-    box_w = bbox["mapped_box"][2]
+    box_w = bbox.mapped_box.width
     return box_w < (page_x * 0.7)
 
 
 def select_headers(bboxes, page, page_dims):
     filter_by_middleness = filter(partial(center_closeness, page_dims), bboxes)
     return [
-        bbox | {"text": page.get_text("text", clip=bbox["mapped_box"])}
+        replace(bbox, text=page.get_text("text", clip=bbox.mapped_box))
         for bbox in filter_by_middleness
     ]
 
@@ -198,7 +209,7 @@ def main():
 
     bboxes = find_text_regions(page_img, page_dims, debug=True)
     res = select_headers(bboxes, pdf[page_no], page_dims)
-    show_bboxes(page_img, [i["opencv_rect"] for i in res])
+    show_bboxes(page_img, [i.opencv_rect for i in res])
     pprint(res)
 
 

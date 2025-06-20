@@ -421,13 +421,13 @@ source = { virtual = "." }
 dependencies = [
     { name = "duckdb" },
     { name = "fire" },
+    { name = "loguru" },
     { name = "marimo", extra = ["sql"] },
     { name = "matplotlib" },
     { name = "nltk" },
     { name = "opencv-python" },
     { name = "pdfquery" },
     { name = "pillow" },
-    { name = "plotly" },
     { name = "pymupdf" },
     { name = "pypdf" },
     { name = "pytesseract" },
@@ -445,6 +445,7 @@ dev = [
     { name = "icecream" },
     { name = "ipython" },
     { name = "mypy" },
+    { name = "pymupdf-stubs" },
     { name = "pysnooper" },
     { name = "rich" },
     { name = "wat-inspector" },
@@ -454,13 +455,13 @@ dev = [
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.2" },
     { name = "fire", specifier = ">=0.7.0" },
+    { name = "loguru", specifier = ">=0.7.3" },
     { name = "marimo", extras = ["sql"], specifier = ">=0.13.10" },
     { name = "matplotlib", specifier = ">=3.10.3" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "opencv-python", specifier = ">=4.11.0.86" },
     { name = "pdfquery", specifier = ">=0.4.3" },
     { name = "pillow", specifier = ">=11.2.1" },
-    { name = "plotly", specifier = ">=6.1.1" },
     { name = "pymupdf", specifier = ">=1.25.5" },
     { name = "pypdf", specifier = ">=5.5.0" },
     { name = "pytesseract", specifier = ">=0.3.13" },
@@ -478,6 +479,7 @@ dev = [
     { name = "icecream", specifier = ">=2.1.4" },
     { name = "ipython", specifier = ">=9.2.0" },
     { name = "mypy", specifier = ">=1.16.1" },
+    { name = "pymupdf-stubs", specifier = ">=1.26.1.post1" },
     { name = "pysnooper", specifier = ">=1.2.3" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "wat-inspector", specifier = ">=0.4.3" },
@@ -655,6 +657,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dd/ce/3f144716a9f2cbf42aa86ebc8b085a184be25c80aa453eea17c294d239c1/language_data-1.3.0.tar.gz", hash = "sha256:7600ef8aa39555145d06c89f0c324bf7dab834ea0b0a439d8243762e3ebad7ec", size = 5129310, upload-time = "2024-11-19T10:21:37.912Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5d/e9/5a5ffd9b286db82be70d677d0a91e4d58f7912bb8dd026ddeeb4abe70679/language_data-1.3.0-py3-none-any.whl", hash = "sha256:e2ee943551b5ae5f89cd0e801d1fc3835bb0ef5b7e9c3a4e8e17b2b214548fbf", size = 5385760, upload-time = "2024-11-19T10:21:36.005Z" },
+]
+
+[[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
 ]
 
 [[package]]
@@ -1174,19 +1189,6 @@ wheels = [
 ]
 
 [[package]]
-name = "plotly"
-version = "6.1.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "narwhals" },
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/77/431447616eda6a432dc3ce541b3f808ecb8803ea3d4ab2573b67f8eb4208/plotly-6.1.2.tar.gz", hash = "sha256:4fdaa228926ba3e3a213f4d1713287e69dcad1a7e66cf2025bd7d7026d5014b4", size = 7662971, upload-time = "2025-05-27T20:21:52.56Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/6f/759d5da0517547a5d38aabf05d04d9f8adf83391d2c7fc33f904417d3ba2/plotly-6.1.2-py3-none-any.whl", hash = "sha256:f1548a8ed9158d59e03d7fed548c7db5549f3130d9ae19293c8638c202648f6d", size = 16265530, upload-time = "2025-05-27T20:21:46.6Z" },
-]
-
-[[package]]
 name = "polars"
 version = "1.30.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1411,6 +1413,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/99/39/23ac15cf0edc2877ef366dc7ae041ac199d212433c2c3113661d1a1d5ad0/pymupdf-1.26.1-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:26cebdcc1b2b7a7445423599ce2e0000f2be0333cce0fa0e6846e5a7da46f965", size = 24258802, upload-time = "2025-06-11T22:15:20.499Z" },
     { url = "https://files.pythonhosted.org/packages/e1/8c/56bd5951128d5c5c0b64d2942090c2cd7bc44302bac991b941ac736e3d63/pymupdf-1.26.1-cp39-abi3-win32.whl", hash = "sha256:82ed9e106cf564fc959c0691c374ba68443086ba1a1c9f26128eebbc3e6df9e5", size = 16927933, upload-time = "2025-06-11T22:15:59.72Z" },
     { url = "https://files.pythonhosted.org/packages/a7/1b/0613759a059c8c952c18811c7c7dd0ba5d7945ed13a535719489f533d700/pymupdf-1.26.1-cp39-abi3-win_amd64.whl", hash = "sha256:8deae5168fce37d707f68d1981da6c0bb71f1f176d9835d5914ad46f779a036f", size = 18519587, upload-time = "2025-06-11T22:16:38.155Z" },
+]
+
+[[package]]
+name = "pymupdf-stubs"
+version = "1.26.1.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pymupdf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e4/2b/4b0eeac059e7c5230e24eafcb557c44bccb1f840a77589f1d2c21eebf96a/pymupdf_stubs-1.26.1.post1.tar.gz", hash = "sha256:dbbf6bad1760e89778edc12094dd39c90b8abf5a470f7668b94163cd6977c2eb", size = 9538, upload-time = "2025-06-19T08:01:57.421Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/48/cadca48562c7f455a57025ddd7122886fedab618bf499106bb3d73797bcd/pymupdf_stubs-1.26.1.post1-py3-none-any.whl", hash = "sha256:499fa4f24da71d5437888c7f8878381d871e4fa5f0c086905f2f65c6662a5512", size = 10736, upload-time = "2025-06-19T08:01:56.238Z" },
 ]
 
 [[package]]
@@ -1999,6 +2013,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/86/eb/20b6cdf273913d0ad05a6a14aed4b9a85591c18a987a3d47f20fa13dcc47/websockets-15.0.1-cp313-cp313-win32.whl", hash = "sha256:ba9e56e8ceeeedb2e080147ba85ffcd5cd0711b89576b83784d8605a7df455fa", size = 176393, upload-time = "2025-03-05T20:02:53.814Z" },
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837, upload-time = "2025-03-05T20:02:55.237Z" },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743, upload-time = "2025-03-05T20:03:39.41Z" },
+]
+
+[[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
 
 [[package]]
