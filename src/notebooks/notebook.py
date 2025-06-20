@@ -216,7 +216,7 @@ def _(
 
 @app.cell
 def _(detected_data):
-    first_box = next(i for i in detected_data if i["idx"] in {45})
+    first_box = next(i for i in detected_data if i["idx"] in {26})
     first_box
     return (first_box,)
 
@@ -247,21 +247,22 @@ def _(detected_data, page):
 
 
 @app.cell
-def _(first_box, pymupdf):
-    first_box["mapped_box"].contains(
-        pymupdf.Rect(
-            72.02400207519531,
-            35.436336517333984,
-            526.4199829101562,
-            49.15199661254883,
-        )
-    )
+def _(first_box, page):
+    page.get_text("text", clip=first_box["mapped_box"])
     return
 
 
 @app.cell
-def _(page):
-    page.get_textpage().extractBLOCKS()
+def _(first_box, page, pymupdf):
+    def extract_text():
+        for block in page.get_textpage().extractBLOCKS():
+            x, y, w, h, tt, _, _ = block
+            rect = pymupdf.Rect(x, y, w, h)
+            if first_box["mapped_box"].intersects(rect):
+                print(f"{tt} matches")
+
+
+    extract_text()
     return
 
 
