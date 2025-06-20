@@ -24,3 +24,6 @@ node_modules/
 __marimo__
 *.pdf
 *.xml
+postgres_data/
+logs/
+*.png
