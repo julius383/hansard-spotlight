@@ -1,17 +1,20 @@
 import math
 import pathlib
+import re
 from collections import deque, namedtuple
 from dataclasses import dataclass, replace
 from functools import partial
-from typing import Optional, Deque
+from typing import Deque, Iterable, Optional
 
 import cv2 as cv
 import numpy as np
 import pymupdf
 from dotenv import dotenv_values
+from icecream import ic
 from loguru import logger
 from PIL import Image
 from rich.pretty import pprint
+from toolz import compose, get_in
 
 logger.add("file_{time}.log")
 
@@ -33,6 +36,7 @@ class DetectedItem:
     mapped_box: pymupdf.Rect
     opencv_rect: Rect
     text: Optional[str] = None
+    font_flags: Optional[int] = None
 
 
 def flags_decomposer(flags):
@@ -194,12 +198,57 @@ def width_thresh(page_dims: Dimension, bbox: DetectedItem):
     return box_w < (page_x * 0.7)
 
 
-def select_headers(bboxes, page, page_dims):
+def select_headers(
+    bboxes: list[DetectedItem], page: pymupdf.Page, page_dims: Dimension
+):
     filter_by_middleness = filter(partial(center_closeness, page_dims), bboxes)
-    return [
-        replace(bbox, text=page.get_text("text", clip=bbox.mapped_box))
-        for bbox in filter_by_middleness
-    ]
+    res = []
+    for bbox in filter_by_middleness:
+        txt = page.get_text("text", clip=bbox.mapped_box)
+        dict_ = page.get_text("dict", clip=bbox.mapped_box)
+        flags = get_in(["blocks", 0, "lines", 0, "spans", 0, "flags"], dict_)
+        res.append(replace(bbox, text=txt, font_flags=flags))
+    return res
+
+
+def process_bboxes(bboxes: list[DetectedItem]) -> Iterable[DetectedItem]:
+    bboxes_: list[DetectedItem] = bboxes.copy()
+    res = []
+    while bboxes_:
+        curr = bboxes_[0]
+        if len(bboxes_) == 1:
+            res.append(curr)
+            break
+        next_ = bboxes_[1]
+        curr_bottom = curr.mapped_box.bottom_left
+        next_top = next_.mapped_box.top_left
+        if next_top.y < curr_bottom.y + 10:
+            # boxes are probably related so combine them
+            res.append(
+                DetectedItem(
+                    idx=curr.idx,
+                    mapped_box=pymupdf.Rect(
+                        curr.mapped_box.top_left, next_.mapped_box.bottom_right
+                    ),
+                    opencv_rect=Rect(
+                        curr.opencv_rect.x,
+                        curr.opencv_rect.y,
+                        max(curr.opencv_rect.width, next_.opencv_rect.width),
+                        curr.opencv_rect.height + next_.opencv_rect.height,
+                    ),
+                    text=curr.text + next_.text,
+                    font_flags=curr.font_flags,
+                )
+            )
+            bboxes_ = bboxes_[2:]
+            continue
+        bboxes_ = bboxes_[1:]
+        res.append(curr)
+    proc = compose(
+        str.strip, partial(re.sub, r"\s+", " "), partial(re.sub, r"\n", "")
+    )
+    # ic(res)
+    return map(lambda x: replace(x, text=proc(x.text)), res)
 
 
 def main():
@@ -210,7 +259,8 @@ def main():
     bboxes = find_text_regions(page_img, page_dims, debug=True)
     res = select_headers(bboxes, pdf[page_no], page_dims)
     show_bboxes(page_img, [i.opencv_rect for i in res])
-    pprint(res)
+    # pprint(res)
+    return res
 
 
 if __name__ == "__main__":
