@@ -1,7 +1,7 @@
 # Hansard Spotlight
 
 A tool for enriching Kenya Parliament proceedings published in [Hansard][1]
-with contexts similar to Wikipedia. Inspired by [DBPedia spotlight][2]
+with context similar to Wikipedia. Inspired by [DBPedia spotlight][2]
 
 
 ## Installation
