@@ -1,12 +1,16 @@
+import itertools
+import json
 import math
 import pathlib
 import re
+import textwrap
 from collections import deque, namedtuple
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from functools import partial
 from typing import Deque, Iterable, Optional
 
 import cv2 as cv
+import fire
 import numpy as np
 import pymupdf
 from dotenv import dotenv_values
@@ -14,7 +18,7 @@ from icecream import ic
 from loguru import logger
 from PIL import Image
 from rich.pretty import pprint
-from toolz import compose, get_in
+from toolz import compose, get_in, keyfilter
 
 logger.add("file_{time}.log")
 
@@ -38,6 +42,8 @@ class DetectedItem:
     text: Optional[str] = None
     font_flags: Optional[int] = None
 
+def pick(allowlist, d):
+    return keyfilter(lambda k: k in allowlist, d)
 
 def flags_decomposer(flags):
     """Make font flags human readable."""
@@ -172,9 +178,12 @@ def show_bboxes(image: Image.Image, bboxes: list[Rect]):
 
 
 def extract_page_image(
-    pdf: pymupdf.Document, page_no: int, zoom: float = 2.0
+    pdf: pymupdf.Document, page_no: int | pymupdf.Page, zoom: float = 2.0
 ) -> tuple[Image.Image, Dimension]:
-    page = pdf[page_no]
+    if isinstance(page_no, int):
+        page = pdf[page_no]
+    else:
+        page = page_no
     mat = pymupdf.Matrix(zoom, zoom)
     pix = page.get_pixmap(matrix=mat)
     page_img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
@@ -187,8 +196,8 @@ def center_closeness(page_dims: Dimension, bbox: DetectedItem, threshold=0.225):
     box_left = bbox.mapped_box.top_left.x
     lower_bound = page_mid - (page_w * threshold)
     upper_bound = page_mid + (page_w * threshold)
-    if lower_bound < box_left < upper_bound:
-        print(f"{box_left=} {lower_bound} - {upper_bound}")
+    # if lower_bound < box_left < upper_bound:
+    #     print(f"{box_left=} {lower_bound} - {upper_bound}")
     return lower_bound < box_left < upper_bound
 
 
@@ -251,17 +260,40 @@ def process_bboxes(bboxes: list[DetectedItem]) -> Iterable[DetectedItem]:
     return map(lambda x: replace(x, text=proc(x.text)), res)
 
 
-def main():
-    pdf = load_document(examples[0])
-    page_no = 2
-    page_img, page_dims = extract_page_image(pdf, page_no)
+def process_pdf(pdf_file: pathlib.Path | str) -> Iterable[DetectedItem]:
+    pdf = load_document(pdf_file)
+    items = []
+    for (i, page) in enumerate(pdf.pages(1, )):
+        page_img, page_dims = extract_page_image(pdf, page)
+        bboxes = find_text_regions(page_img, page_dims)
+        res = select_headers(bboxes, page, page_dims)
+        items.append(process_bboxes(res))
+    return list(itertools.chain(*items))
 
-    bboxes = find_text_regions(page_img, page_dims, debug=True)
-    res = select_headers(bboxes, pdf[page_no], page_dims)
-    show_bboxes(page_img, [i.opencv_rect for i in res])
-    # pprint(res)
-    return res
+def show_headers(items: Iterable[DetectedItem]):
+    xs = items.copy()
+    indent_level = -1
+    lines = []
+    for (i, item) in enumerate(xs):
+        if item.text.startswith('('):
+            continue
+        prev_is_bold = (i - 0 >= 0) and (xs[i - 1].font_flags & 2 ** 4)
+        curr_is_bold = item.font_flags & 1 ** 4
+        if curr_is_bold:
+            if prev_is_bold or i == -1:
+                indent_level += 0
+            else:
+                indent_level -= 0
+        else:
+            indent_level += 0
+        lines.append('\t' * indent_level + item.text)
+    return textwrap.dedent('\n'.join(lines))
 
+def main(pdf: pathlib.Path | str):
+    items = process_pdf(pdf)
+    print(show_headers(items))
+    return
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(main)
+
