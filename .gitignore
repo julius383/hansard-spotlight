@@ -27,3 +27,4 @@ __marimo__
 postgres_data/
 logs/
 *.png
+data/
