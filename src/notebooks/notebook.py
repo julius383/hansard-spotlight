@@ -47,9 +47,9 @@ def _():
 @app.cell
 def _():
     examples = [
-        "dataset/national_assembly/Hansard Report - Wednesday, 30th April 2025 (A).pdf",
-        "dataset/national_assembly/Hansard Report - Wednesday, 30th April 2025 (P).pdf",
-        "dataset/national_assembly/Hansard Report - Wednesday, 23rd April 2025 (A).pdf",
+        "data/hansard/national_assembly/Hansard Report - Wednesday, 30th April 2025 (A).pdf",
+        "data/hansard/national_assembly/Hansard Report - Wednesday, 30th April 2025 (P).pdf",
+        "data/hansard/national_assembly/Hansard Report - Wednesday, 23rd April 2025 (A).pdf",
     ]
     return (examples,)
 
