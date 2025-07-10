@@ -20,7 +20,7 @@ from PIL import Image
 from rich.pretty import pprint
 from toolz import compose, get_in, keyfilter
 
-logger.add("file_{time}.log")
+# logger.add("file_{time}.log")
 
 examples = [
     "dataset/national_assembly/Hansard Report - Wednesday, 30th April 2025 (A).pdf",
@@ -66,7 +66,7 @@ def flags_decomposer(flags):
 
 
 def load_document(file_path: str | pathlib.Path) -> pymupdf.Document:
-    doc = pymupdf.open(examples[0])
+    doc = pymupdf.open(file_path)
     return doc
 
 
