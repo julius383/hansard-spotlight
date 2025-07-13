@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+output=$(mktemp --suffix=.html)
+years=(2022)
+
+# http://www.parliament.go.ke/the-senate/senators?title=&field_parliament_value=2022&page=0
+# http://www.parliament.go.ke/the-national-assembly/mps?field_name_value=%20&field_parliament_value=2022&field_employment_history_value=&page=0
+base="http://www.parliament.go.ke"
+for year in "${years[@]}"; do
+  curl -fsSL "http://www.parliament.go.ke/the-senate/senators?title=&field_parliament_value=${year}&page=0" -o "$output"
+  first=$(( 0 ))
+  last_link=$(pup 'nav.pager ul li:last-child a attr{href}' < "$output" | sd '.*page=(\d+)$' '$1')
+  last=$(( last_link ))
+  urls_file="senators_$year"
+  for page in $(seq $first $last); do
+    printf "processing page %s/%s of %s \r" "$(( page + 1 ))" "$(( last + 1 ))" "$year"
+    url="http://www.parliament.go.ke/the-senate/senators?title=&field_parliament_value=${year}&page=${page}"
+    curl -fsSL "$url" -o "$output"
+    pup '.views-field-view-node a attr{href}' < "$output" >> "$urls_file"
+    sleep 0.5
+  done
+  while read -r line; do
+    if [[ $line == http* ]];then
+      echo "$line"
+    else
+      echo "${base}${line}"
+    fi
+  done < "$urls_file" | sponge "$urls_file"
+done

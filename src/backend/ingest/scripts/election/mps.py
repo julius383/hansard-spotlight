@@ -1,30 +1,61 @@
-import pandas as pd
+#!/usr/bin/env python
+
 import re
 import json
 from pathlib import Path
+from functools import partial
+
+from snakemake.script import snakemake
+from toolz import compose, identity
+
+from backend.util.helpers import clean_person_name, nullify
 
 
-def clean_name(s: str) -> str:
-    s = re.sub(r'^HON\.\s*', '', s, flags=re.IGNORECASE)
-    s = re.sub(r'^\(.+\)\s*', '', s, flags=re.IGNORECASE)
-    s = ' '.join(map(str.capitalize, s.split(' ')))
-    return s
+functions = {
+    "candidate": clean_person_name,
+    "party": compose(nullify, str.upper),
+    "votes": lambda x: nullify(x, int),
+    "percentage": compose(lambda x: nullify(x, float), partial(re.sub, r'%', '')),
+    "constituency_no": identity,
+    "year": identity,
+}
 
-recs = []
-for f in Path('data/raw/election/constituency').iterdir():
-    with open(f) as fp:
-        objs = json.load(fp)
-        for o in objs:
-            const_no, year = f.stem.split('_')
-            o['full_name'] = clean_name(o['candidate'])
-            o['vote_count'] = o['votes']
-            o['vote_percent'] = o['percentage'].strip('%')
-            o['party_short'] = o['party']
-            o['constituency_no'] = int(const_no)
-            o['year'] = int(year)
-            del o['candidate']
-            del o['party']
-            del o['votes']
-            del o['percentage']
-            recs.append(o)
-mps = pd.DataFrame(recs)
+
+def main():
+    input_files = snakemake.input
+    output_file = snakemake.output[0]
+
+    data = []
+    processed_data = []
+    for input_file in input_files:
+        if m := re.search(r"(\d{3})_(20(?:13|17|22))", input_file):
+            constituency_no = int(m.group(1))
+            year = int(m.group(2))
+        else:
+            constituency_no = None
+            year = None
+
+        with open(input_file, "r") as f:
+            for line in f:
+                item = json.loads(line.strip())
+                item["constituency_no"] = constituency_no
+                item["year"] = year
+                data.append(item)
+
+    for item in data:
+        result = {key: functions[key](item[key]) for key in functions.keys()}
+        processed_data.append(result)
+
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_file, "w") as f:
+        json.dump(
+            sorted(
+                processed_data, key=lambda x: x["year"], reverse=True
+            ),
+            f,
+            indent=2,
+        )
+
+if __name__ == "__main__":
+    main()
