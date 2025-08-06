@@ -13,7 +13,6 @@ import cv2 as cv
 import fire
 import numpy as np
 import pymupdf
-from dotenv import dotenv_values
 from icecream import ic
 from loguru import logger
 from PIL import Image
@@ -27,8 +26,6 @@ examples = [
     "dataset/national_assembly/Hansard Report - Wednesday, 30th April 2025 (P).pdf",
     "dataset/national_assembly/Hansard Report - Wednesday, 23rd April 2025 (A).pdf",
 ]
-
-config = dotenv_values(".env")
 
 Dimension = namedtuple("Dimension", ["width", "height"])
 Rect = namedtuple("Rect", ["x", "y", "width", "height"])
@@ -260,7 +257,7 @@ def process_bboxes(bboxes: list[DetectedItem]) -> Iterable[DetectedItem]:
     return map(lambda x: replace(x, text=proc(x.text)), res)
 
 
-def process_pdf(pdf_file: pathlib.Path | str) -> Iterable[DetectedItem]:
+def extract_headers(pdf_file: pathlib.Path | str) -> Iterable[DetectedItem]:
     pdf = load_document(pdf_file)
     items = []
     for (i, page) in enumerate(pdf.pages(1, )):
@@ -290,7 +287,7 @@ def show_headers(items: Iterable[DetectedItem]):
     return textwrap.dedent('\n'.join(lines))
 
 def main(pdf: pathlib.Path | str):
-    items = process_pdf(pdf)
+    items = extract_headers(pdf)
     print(show_headers(items))
     return
 

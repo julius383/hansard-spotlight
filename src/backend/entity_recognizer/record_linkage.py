@@ -5,12 +5,13 @@ from functools import partial
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Optional, Union
+from itertools import combinations
 
 import duckdb
 from rapidfuzz import fuzz, process, utils
-from toolz import compose
+from toolz import compose, groupby, unique
+from tqdm import tqdm
 
-# DATA_DIR = Path("../../../") / "data/results/"
 DATA_DIR = Path("data/results")
 
 
@@ -40,13 +41,12 @@ def combined_fuzzy_score(
         Combined weighted score (0-100) or dict with all scores if return_components=True
     """
 
-    # Default weights - can be tuned based on your data characteristics
     if weights is None:
         weights = {
-            "ratio": 0.15,  # Basic Levenshtein ratio
-            "token_sort_ratio": 0.35,  # Sorted token comparison
-            "token_set_ratio": 0.35,  # Set-based token comparison
-            "qratio": 0.15,  # Quick ratio (fastest)
+            "ratio": 0.15,
+            "token_sort_ratio": 0.35,
+            "token_set_ratio": 0.35,
+            "qratio": 0.15,
         }
 
     # Handle None/empty strings
@@ -62,7 +62,6 @@ def combined_fuzzy_score(
             }
         return result
 
-    # Calculate individual scores
     scores = {
         "ratio": fuzz.ratio(str1, str2, score_cutoff=score_cutoff),
         "token_sort_ratio": fuzz.token_sort_ratio(
@@ -74,7 +73,6 @@ def combined_fuzzy_score(
         "qratio": fuzz.QRatio(str1, str2, score_cutoff=score_cutoff),
     }
 
-    # Calculate weighted combination
     combined_score = sum(scores[method] * weights[method] for method in weights)
 
     if return_components:
@@ -84,8 +82,11 @@ def combined_fuzzy_score(
     return combined_score
 
 
+# TODO: backup old linkage results before writing new ones
 def main():
     # link profiles and elections
+    # ruff: noqa: F841
+
     profiles = duckdb.read_json(str(DATA_DIR / "parliament_profiles.json"))
     election_data = duckdb.read_json(str(DATA_DIR / "election_mps.json"))
     constituencies = duckdb.read_json(str(DATA_DIR / "constituency.json"))
@@ -94,20 +95,28 @@ def main():
     # disambiguate constituency
     profiles_with_constituency = duckdb.sql(
         """
-        select prof.*, constituency_no
+        select prof.name, prof.session_year, constituency_no
         from profiles prof
         inner join constituencies const
         on lcase(prof.seat) = lcase(const.constituency_name)
         """
     )
-    name_mapping = {}
-    for profile in duckdb.sql(
-        "select * from profiles_with_constituency where session_year = 2022"
-    ).fetchall():
-        name, seat, party, profile_url, profile_photo, year, constituency_no = (
-            profile
-        )
-        akas = [{"dataset": "parliament_profiles.json", "id": name}]
+    name_mapping = []
+    for profile in tqdm(
+        duckdb.sql(
+            "select * from profiles_with_constituency where session_year = 2022"
+        ).fetchall()
+    ):
+        id_ = uuid.uuid4()
+        name, year, constituency_no = profile
+        akas = [
+            {
+                "dataset": "parliament_profiles.json",
+                "id": name,
+                "gid": str(id_),
+                "id_col": "name",
+            }
+        ]
 
         election_candidates = list(
             map(
@@ -152,14 +161,47 @@ def main():
         )
         if election_name:
             akas.append(
-                {"dataset": "election_mps.json", "id": election_name[0]}
+                {
+                    "dataset": "election_mps.json",
+                    "id": election_name[0],
+                    "gid": str(id_),
+                    "id_col": "candidate",
+                }
             )
 
         if committee_name:
-            akas.append({"dataset": "committees.json", "id": committee_name[0]})
+            akas.append(
+                {
+                    "dataset": "committees.json",
+                    "id": committee_name[0],
+                    "gid": str(id_),
+                    "id_col": "members",
+                }
+            )
 
-        id_ = uuid.uuid4()
-        name_mapping[str(id_)] = akas
+        # if len(akas) > 1:
+        name_mapping.extend(akas)
     with open(DATA_DIR / "linkage.json", "w") as fp:
         json.dump(name_mapping, fp, indent=2)
     return name_mapping
+
+
+def lint_linkage(linkage_file: str | Path):
+    with open(linkage_file, "r") as fp:
+        items = json.load(fp)
+
+    # similar names not fully linked
+    names = sorted(unique(map(itemgetter('id'), items)))
+    cross = combinations(names, 2)
+    res = {}
+    for (k1, k2) in cross:
+        r = fuzz.QRatio(k1, k2)
+        if r >= 70:
+            k1_gid = next(i for i in items if i["id"] == k1)
+            k2_gid = next(i for i in items if i["id"] == k2)
+            if k1_gid["gid"] != k2_gid["gid"]:
+                res[(k1, k2)] = ((k1_gid, k2_gid), r)
+    return res
+
+if __name__ == "__main__":
+    main()
