@@ -1,7 +1,20 @@
+import hashlib
+import json
 import re
-from functools import partial
+import time
+from functools import partial, wraps
+from pathlib import Path
 
+from loguru import logger
 from toolz import keyfilter, pipe
+
+type AFile = str | Path
+
+
+def hash_file(file: AFile) -> str:
+    with open(file, "rb") as fp:
+        digest = hashlib.file_digest(fp, "sha256")
+    return digest.hexdigest()
 
 
 def pick(allowlist, d):
@@ -32,5 +45,37 @@ def clean_person_name(s: str) -> str:
     )
     return s
 
+
 def nullify(s, f=lambda x: x):
     return None if (isinstance(s, str) and s == "") else f(s)
+
+
+def write_results(path: AFile, mode: str = "a"):
+    """Decorator that saves output of function to `path` as json"""
+
+    def decorator_save_output(func):
+        @wraps(func)
+        def wrapper_save_output(*args, **kwargs):
+            res = func(*args, **kwargs)
+            to = Path(path).expanduser()
+            try:
+                if to.exists() and mode != "a":
+                    new_path = to.with_stem(
+                        f"{to.stem}-{int(time.monotonic())}"
+                    )
+                    logger.info(
+                        f"{path} already exists writing to {new_path}",
+                        func_name=func.__name__,
+                    )
+                    to = new_path
+                output_file = to
+
+                with open(output_file, mode, encoding="utf-8") as f:
+                    json.dump(res, f, default=str, ensure_ascii=False)
+                    f.write("\n")
+            except TypeError:
+                logger.exception("Could not encode json")
+            return res
+
+        return wrapper_save_output
+    return decorator_save_output
