@@ -1,0 +1,70 @@
+import glob
+import os
+
+DATASETS_BASE = "../../../data"
+
+rule all:
+    input:
+        os.path.join(DATASETS_BASE, "results/constituency.json"),
+        os.path.join(DATASETS_BASE, "results/county.json"),
+        os.path.join(DATASETS_BASE, "results/parliament_profiles.json"),
+        os.path.join(DATASETS_BASE, "results/election_mps.json"),
+
+rule process_mps:
+    input:
+        glob.glob(os.path.join(DATASETS_BASE, "entities/parliament/national_assembly/*.jsonl"))
+    output:
+        os.path.join(DATASETS_BASE, "results/parliament_profiles.json")
+    script:
+        "scripts/parliament/mps.py"
+
+rule process_election_mps:
+    input:
+        glob.glob(os.path.join(DATASETS_BASE, "entities/election/constituency/*.jsonl"))
+    output:
+        os.path.join(DATASETS_BASE, "results/election_mps.json")
+    script:
+        "scripts/election/mps.py"
+
+rule process_constituencies:
+    input:
+        os.path.join(DATASETS_BASE, "entities/geographical/constituency_2022.json")
+    output:
+        os.path.join(DATASETS_BASE, "results/constituency.json"),
+    shell:
+        """
+        duckdb -c "
+            copy (
+            select
+                cast(COUNTY_NO as utinyint) as county_no,
+                cast(CONSTITUENCY_NO as uinteger) as constituency_no,
+                cast(CONSTITUENCY_POPULATION as ubigint) as county_population,
+                upper(CONSTITUENCY_NAME) as constituency_name,
+                cast(REG_VOTERS as ubigint) as registered_voters,
+                round(cast(AREA_SQ_KM as numeric), 2) as area_sq_km
+            from read_json_auto('{input}')
+            where cast(CONSTITUENCY_NO as uinteger) <= 290
+            ) to '{output}' (format json, array true);
+            "
+        """
+
+rule process_counties:
+    input:
+        os.path.join(DATASETS_BASE, "entities/geographical/county_2022.json")
+    output:
+        os.path.join(DATASETS_BASE, "results/county.json"),
+    shell:
+        """
+        duckdb -c "
+            copy (
+            select
+                cast(COUNTY_NO as utinyint) as county_no,
+                upper(COUNTY_NAME) as county_name,
+                cast(COUNTY_POPULATION as ubigint) as county_population,
+                cast(REG_VOTERS as ubigint) as registered_voters,
+                round(cast(AREA_SQ_KM as numeric), 2) as area_sq_km
+            from read_json_auto('{input}')
+            ) to '{output}' (format json, array true);
+            "
+        """
+

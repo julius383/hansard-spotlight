@@ -21,10 +21,11 @@ node_modules/
 *.duckdb
 *.csv
 *.parquet
-__marimo__
+__marimo__/
 *.pdf
 *.xml
 postgres_data/
 logs/
 *.png
 data/
+.snakemake/
